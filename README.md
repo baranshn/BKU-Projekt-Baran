@@ -16,7 +16,7 @@
 
 <br>
 
-[Overview](#-overview) · [Hardware](#-hardware) · [Software](#-software) · [Roadmap](#-roadmap) · [Team](#-team)
+[Overview](#overview) · [Hardware](#hardware) · [Software](#software) · [Roadmap](#roadmap) · [Team](#team)
 
 ---
 
