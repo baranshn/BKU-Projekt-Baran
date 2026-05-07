@@ -1,542 +1,173 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Playground Master – Arduino Smart Car</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<div align="center"> <img src="https://img.shields.io/badge/Platform-PlaygroundMaster-blue?style=for-the-badge" /> <img src="https://img.shields.io/badge/Language-C++-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white" /> <img src="https://img.shields.io/badge/Status-In%20Development-yellow?style=for-the-badge" /> <img src="https://img.shields.io/badge/License-School%20Project-lightgrey?style=for-the-badge" /> <br/> <br/>
 
-    :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --border: #21262d;
-      --accent: #00979d;
-      --accent-dim: rgba(0,151,157,0.12);
-      --text: #e6edf3;
-      --text-muted: #7d8590;
-      --mono: 'IBM Plex Mono', monospace;
-      --sans: 'IBM Plex Sans', sans-serif;
+🚗 PlaygroundMaster Autonomous Car
+An embedded C++ project featuring ultrasonic obstacle avoidance, servo steering, joystick control, and real-time OLED display feedback.
+
+</div> 
+
+📖 Table of Contents
+About the Project
+Hardware Components
+Wiring Overview
+Software Architecture
+Driving Modes
+Obstacle Avoidance Algorithm
+OLED Display
+Getting Started
+Roadmap
+Team
+🧭 About the Project
+This project was developed as part of a school embedded systems course. The goal is to design and program a small autonomous vehicle using the PlaygroundMaster platform and C++.
+
+The vehicle is capable of two operating modes:
+
+Manual mode — controlled in real time via a joystick
+Autonomous mode — self-navigating using ultrasonic distance sensors
+All live data (speed, mode, distances, steering angle) is displayed on a compact OLED screen mounted on the vehicle.
+
+🛠 Hardware Components
+Component	Model	Role
+Microcontroller	PlaygroundMaster	Main control unit
+Ultrasonic Sensors	HC-SR04 × 3	Front, left & right distance measurement
+Servo Motor	SG90 / MG996R	Steering control
+DC Motor + Driver	L298N	Drive (forward / backward)
+Joystick Module	Analog XY + Button	Manual control input
+OLED Display	0.96" I2C SSD1306	Live status display
+🔌 Wiring Overview
+PlaygroundMaster
+│
+├── Ultrasonic Front   → TRIG: D2  | ECHO: D3
+├── Ultrasonic Left    → TRIG: D4  | ECHO: D5
+├── Ultrasonic Right   → TRIG: D6  | ECHO: D7
+│
+├── Servo (Steering)   → PWM: D9
+│
+├── Motor Driver       → IN1: D10 | IN2: D11 | ENA: D8
+│
+├── Joystick           → VRX: A0  | VRY: A1  | SW: D12
+│
+└── OLED Display       → SDA: A4  | SCL: A5  (I2C)
+⚠ Pin assignments may vary depending on final hardware layout. Update config.h accordingly.
+
+💻 Software Architecture
+Libraries Used
+#include <Servo.h>            // Servo control
+#include <Wire.h>             // I2C communication
+#include <Adafruit_GFX.h>     // Graphics library
+#include <Adafruit_SSD1306.h> // OLED driver
+File Structure
+PlaygroundMaster-Car/
+│
+├── src/
+│   ├── main.cpp               # Entry point — setup() & loop()
+│   ├── config.h               # Pin definitions & global constants
+│   ├── motor.h / .cpp         # DC motor control (speed, direction)
+│   ├── servo_control.h / .cpp # Servo steering logic
+│   ├── ultrasonic.h / .cpp    # Distance measurement via HC-SR04
+│   ├── joystick.h / .cpp      # Joystick input processing
+│   └── display.h / .cpp       # OLED screen rendering
+│
+├── README.md
+└── platformio.ini / *.ino
+🚦 Driving Modes
+Manual Mode (Joystick)
+Joystick Axis	Action
+Y-Axis forward	Motor speed increase — drive forward
+Y-Axis backward	Motor reverse — drive backward
+X-Axis left/right	Servo angle — steer left or right
+Button press	Toggle between Manual and Autonomous
+Autonomous Mode
+In autonomous mode, the vehicle navigates independently using its three ultrasonic sensors. It continuously measures distances and reacts to obstacles in real time.
+
+🧠 Obstacle Avoidance Algorithm
+┌─────────────────────────────┐
+│       AUTONOMOUS LOOP       │
+└──────────────┬──────────────┘
+               │
+               ▼
+   ┌───────────────────────┐
+   │  Read front distance  │
+   └───────────┬───────────┘
+               │
+     ┌─────────▼──────────┐
+     │  distance < 20 cm? │
+     └──────┬──────┬──────┘
+           NO     YES
+            │       │
+            ▼       ▼
+       Drive    ┌───────────────────┐
+      Forward   │ Stop & scan sides │
+                └────────┬──────────┘
+                         │
+            ┌────────────▼────────────┐
+            │ left dist > right dist? │
+            └───────┬─────────┬───────┘
+                   YES        NO
+                    │          │
+                    ▼          ▼
+               Turn LEFT   Turn RIGHT
+                    │          │
+                    └────┬─────┘
+                         ▼
+                   Drive Forward
+// Pseudocode
+if (frontDistance < THRESHOLD_CM) {
+    stopMotor();
+    if (leftDistance > rightDistance) {
+        turnLeft();
+    } else {
+        turnRight();
     }
+} else {
+    driveForward();
+}
+📟 OLED Display
+The OLED screen provides live feedback while the vehicle is running:
 
-    html { scroll-behavior: smooth; }
+┌─────────────────────┐
+│  MODE: AUTONOMOUS   │
+│  SPEED: 180 PWM     │
+│  F: 34cm  L: 12cm   │
+│  R: 48cm  ANG: 90°  │
+└─────────────────────┘
+Field	Description
+MODE	Current driving mode
+SPEED	Motor PWM value (0–255)
+F / L / R	Front, left, right sensor distances
+ANG	Current servo steering angle
+🚀 Getting Started
+Prerequisites
+Arduino IDE or PlatformIO
+Adafruit SSD1306 Library
+Adafruit GFX Library
+Setup
+# Clone the repository
+git clone https://github.com/your-username/playgroundmaster-car.git
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 15px;
-      line-height: 1.7;
-    }
+# Open in Arduino IDE or PlatformIO
+# Select the correct board (PlaygroundMaster / Arduino Uno)
+# Install required libraries via the Library Manager
+# Upload to board
+📅 Roadmap
+[x] Project planning & component selection
+[ ] Hardware assembly & wiring
+[ ] Basic motor & servo control
+[ ] Joystick input processing
+[ ] Ultrasonic distance reading
+[ ] OLED display integration
+[ ] Autonomous obstacle avoidance logic
+[ ] Mode switching (manual ↔ autonomous)
+[ ] Full system integration & field testing
+[ ] Parameter tuning & final optimisation
+[ ] Documentation & presentation
+👥 Team
+Name	Responsibility
+[Name 1]	Hardware assembly & wiring
+[Name 2]	Motor & servo programming
+[Name 3]	Ultrasonic sensors & autonomy algorithm
+[Name 4]	OLED display & joystick integration
+<div align="center">
 
-    /* NAV */
-    nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(13,17,23,0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
-      height: 56px;
-    }
-    .nav-logo {
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      color: var(--accent);
-      letter-spacing: 0.05em;
-    }
-    .nav-links { display: flex; gap: 1.5rem; }
-    .nav-links a {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-decoration: none;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      transition: color 0.2s;
-    }
-    .nav-links a:hover { color: var(--text); }
-
-    /* HERO */
-    .hero {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 5rem 2rem 4rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .hero-tag {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--accent);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 1.2rem;
-    }
-    .hero h1 {
-      font-size: clamp(2rem, 5vw, 3.2rem);
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-      margin-bottom: 1.2rem;
-    }
-    .hero p {
-      font-size: 1.05rem;
-      color: var(--text-muted);
-      max-width: 580px;
-      margin-bottom: 2rem;
-    }
-    .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .badge {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      padding: 0.25rem 0.6rem;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text-muted);
-      background: var(--surface);
-    }
-    .badge.accent { border-color: var(--accent); color: var(--accent); }
-
-    /* LAYOUT */
-    .content {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 0 2rem 6rem;
-    }
-
-    section { padding: 3.5rem 0; border-bottom: 1px solid var(--border); }
-    section:last-child { border-bottom: none; }
-
-    h2 {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--accent);
-      margin-bottom: 1.8rem;
-    }
-    h3 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin: 2rem 0 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 0.75rem;
-    }
-
-    /* MODES */
-    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .mode-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-    }
-    .mode-card .label {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--accent);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 0.5rem;
-    }
-    .mode-card p { font-size: 0.9rem; color: var(--text-muted); }
-
-    /* TABLE */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.875rem;
-      margin-top: 0.5rem;
-    }
-    thead tr { border-bottom: 1px solid var(--border); }
-    th {
-      text-align: left;
-      padding: 0.6rem 0.75rem;
-      font-family: var(--mono);
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      font-weight: 400;
-    }
-    td {
-      padding: 0.65rem 0.75rem;
-      border-bottom: 1px solid rgba(33,38,45,0.6);
-      color: var(--text-muted);
-    }
-    td:first-child { color: var(--text); font-weight: 400; }
-    tr:hover td { background: var(--accent-dim); }
-    .mono { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
-
-    /* CODE */
-    pre {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
-      overflow-x: auto;
-      margin-top: 0.75rem;
-    }
-    code {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: #a5d6ff;
-      line-height: 1.7;
-    }
-    .kw { color: #ff7b72; }
-    .fn { color: #d2a8ff; }
-    .cm { color: #5c6d80; font-style: italic; }
-    .st { color: #a5d6ff; }
-
-    /* FILE TREE */
-    .tree {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      line-height: 2;
-      color: var(--text-muted);
-    }
-    .tree .dir { color: var(--text); }
-    .tree .file { color: var(--text-muted); }
-
-    /* PHASES */
-    .phases { display: flex; flex-direction: column; gap: 0; }
-    .phase {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 1.5rem;
-      padding: 1.5rem 0;
-      border-bottom: 1px solid var(--border);
-      align-items: start;
-    }
-    .phase:last-child { border-bottom: none; }
-    .phase-num {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--accent);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding-top: 0.1rem;
-    }
-    .phase-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.6rem; }
-    .checklist { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
-    .checklist li {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .checklist li::before {
-      content: '';
-      width: 14px;
-      height: 14px;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-
-    /* TEAM */
-    .team-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-    .team-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.1rem 1.25rem;
-    }
-    .team-card .role {
-      font-family: var(--mono);
-      font-size: 0.65rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.3rem;
-    }
-    .team-card .name { font-size: 0.9rem; color: var(--text-muted); }
-
-    /* TIMELINE */
-    .timeline { display: flex; flex-direction: column; gap: 0; }
-    .tl-row {
-      display: grid;
-      grid-template-columns: 64px 1fr;
-      gap: 1.2rem;
-      padding: 1rem 0;
-      border-bottom: 1px solid var(--border);
-      align-items: center;
-    }
-    .tl-row:last-child { border-bottom: none; }
-    .tl-week {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--accent);
-      letter-spacing: 0.06em;
-    }
-    .tl-text { font-size: 0.875rem; color: var(--text-muted); }
-
-    @media (max-width: 600px) {
-      .mode-grid, .team-grid { grid-template-columns: 1fr; }
-      .phase { grid-template-columns: 1fr; gap: 0.5rem; }
-      .nav-links { display: none; }
-    }
-  </style>
-</head>
-<body>
-
-<nav>
-  <span class="nav-logo">playground-master</span>
-  <div class="nav-links">
-    <a href="#description">Overview</a>
-    <a href="#hardware">Hardware</a>
-    <a href="#software">Software</a>
-    <a href="#roadmap">Roadmap</a>
-    <a href="#team">Team</a>
-  </div>
-</nav>
-
-<div class="hero">
-  <div class="hero-tag">School Engineering Project</div>
-  <h1>Playground Master<br>Arduino Smart Car</h1>
-  <p>A programmable Arduino-based vehicle with manual joystick control, autonomous obstacle avoidance, servo steering, and a live OLED status display.</p>
-  <div class="badge-row">
-    <span class="badge accent">Arduino / C++</span>
-    <span class="badge">HC-SR04 Ultrasonic</span>
-    <span class="badge">Servo Steering</span>
-    <span class="badge">OLED Display</span>
-    <span class="badge">L298N Motor Driver</span>
-    <span class="badge">Status: In Development</span>
-  </div>
-</div>
-
-<div class="content">
-
-  <section id="description">
-    <h2>Project Description</h2>
-    <p style="color:var(--text-muted); margin-bottom: 1.5rem;">
-      The goal of this project is to design and program a functional smart car using an Arduino microcontroller and C++.
-      The vehicle operates in two modes, switchable at runtime via the joystick button.
-    </p>
-    <div class="mode-grid">
-      <div class="mode-card">
-        <div class="label">Manual Mode</div>
-        <p>Controlled via analog joystick. X-axis handles steering, Y-axis controls throttle and direction.</p>
-      </div>
-      <div class="mode-card">
-        <div class="label">Autonomous Mode</div>
-        <p>Ultrasonic sensors measure distances in real time. The car steers automatically to avoid obstacles.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="hardware">
-    <h2>Hardware</h2>
-
-    <h3>Components</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Component</th>
-          <th>Model</th>
-          <th>Purpose</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Microcontroller</td><td class="mono">Arduino Uno / Mega</td><td>Main processing unit</td></tr>
-        <tr><td>Ultrasonic Sensor</td><td class="mono">HC-SR04</td><td>Obstacle distance measurement</td></tr>
-        <tr><td>Servo Motor</td><td class="mono">SG90 / MG90S</td><td>Front axle steering</td></tr>
-        <tr><td>DC Motor</td><td class="mono">TT Motor</td><td>Rear wheel drive</td></tr>
-        <tr><td>Motor Driver</td><td class="mono">L298N</td><td>Speed and direction control</td></tr>
-        <tr><td>Joystick</td><td class="mono">KY-023</td><td>Manual input</td></tr>
-        <tr><td>OLED Display</td><td class="mono">0.96" SSD1306 I2C</td><td>Live status output</td></tr>
-        <tr><td>Power Supply</td><td class="mono">9V Battery / LiPo</td><td>Vehicle power source</td></tr>
-        <tr><td>Chassis</td><td class="mono">2WD Smart Car Kit</td><td>Physical frame</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Pin Mapping</h3>
-    <table>
-      <thead>
-        <tr><th>Arduino Pin</th><th>Component</th></tr>
-      </thead>
-      <tbody>
-        <tr><td class="mono">D3</td><td>Servo (PWM)</td></tr>
-        <tr><td class="mono">D5</td><td>Motor Enable (PWM)</td></tr>
-        <tr><td class="mono">D6</td><td>Motor IN1</td></tr>
-        <tr><td class="mono">D7</td><td>Motor IN2</td></tr>
-        <tr><td class="mono">D9</td><td>Ultrasonic TRIG</td></tr>
-        <tr><td class="mono">D10</td><td>Ultrasonic ECHO</td></tr>
-        <tr><td class="mono">A0</td><td>Joystick X-Axis</td></tr>
-        <tr><td class="mono">A1</td><td>Joystick Y-Axis</td></tr>
-        <tr><td class="mono">A2</td><td>Joystick Button</td></tr>
-        <tr><td class="mono">SDA (A4)</td><td>OLED Display</td></tr>
-        <tr><td class="mono">SCL (A5)</td><td>OLED Display</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="software">
-    <h2>Software</h2>
-
-    <h3>Libraries</h3>
-    <pre><code><span class="kw">#include</span> <span class="st">&lt;Servo.h&gt;</span>            <span class="cm">// Servo motor control</span>
-<span class="kw">#include</span> <span class="st">&lt;Wire.h&gt;</span>             <span class="cm">// I2C communication</span>
-<span class="kw">#include</span> <span class="st">&lt;Adafruit_GFX.h&gt;</span>     <span class="cm">// OLED graphics</span>
-<span class="kw">#include</span> <span class="st">&lt;Adafruit_SSD1306.h&gt;</span> <span class="cm">// OLED SSD1306 driver</span></code></pre>
-
-    <h3>Core Logic</h3>
-    <pre><code><span class="kw">void</span> <span class="fn">loop</span>() {
-  <span class="kw">if</span> (joystick.<span class="fn">buttonPressed</span>()) <span class="fn">toggleMode</span>();
-
-  <span class="kw">if</span> (mode == MANUAL) {
-    speed    = joystick.<span class="fn">getY</span>();
-    steering = joystick.<span class="fn">getX</span>();
-  }
-
-  <span class="kw">if</span> (mode == AUTONOMOUS) {
-    distance = ultrasonic.<span class="fn">measure</span>();
-    <span class="kw">if</span> (distance &lt; THRESHOLD) <span class="fn">avoid</span>();
-    <span class="kw">else</span> <span class="fn">drive</span>(FORWARD);
-  }
-
-  servo.<span class="fn">setAngle</span>(steering);
-  motor.<span class="fn">setSpeed</span>(speed);
-  display.<span class="fn">update</span>(mode, speed, distance);
-}</code></pre>
-
-    <h3>Project Structure</h3>
-    <div class="tree">
-      <span class="dir">playground-master/</span><br>
-      ├── <span class="dir">src/</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">main.cpp</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">motor.cpp / motor.h</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">servo_control.cpp / servo_control.h</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">ultrasonic.cpp / ultrasonic.h</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">joystick.cpp / joystick.h</span><br>
-      │&nbsp;&nbsp; └── <span class="file">display.cpp / display.h</span><br>
-      ├── <span class="dir">docs/</span><br>
-      │&nbsp;&nbsp; ├── <span class="file">wiring_diagram.png</span><br>
-      │&nbsp;&nbsp; └── <span class="file">components.md</span><br>
-      └── <span class="file">README.md</span>
-    </div>
-  </section>
-
-  <section id="roadmap">
-    <h2>Development Plan</h2>
-    <div class="phases">
-      <div class="phase">
-        <div class="phase-num">Phase 01</div>
-        <div>
-          <div class="phase-title">Planning & Assembly</div>
-          <ul class="checklist">
-            <li>Finalize component list</li>
-            <li>Create wiring schematic</li>
-            <li>Assemble chassis and mount components</li>
-            <li>Verify power supply and connections</li>
-          </ul>
-        </div>
-      </div>
-      <div class="phase">
-        <div class="phase-num">Phase 02</div>
-        <div>
-          <div class="phase-title">Basic Drive System</div>
-          <ul class="checklist">
-            <li>DC motor control: forward, backward, stop</li>
-            <li>Servo steering: left, right, center</li>
-            <li>Joystick analog input reading</li>
-            <li>Manual drive test</li>
-          </ul>
-        </div>
-      </div>
-      <div class="phase">
-        <div class="phase-num">Phase 03</div>
-        <div>
-          <div class="phase-title">Sensor Integration</div>
-          <ul class="checklist">
-            <li>Initialize HC-SR04 ultrasonic sensor</li>
-            <li>Implement real-time distance measurement</li>
-            <li>Set collision detection threshold (&lt; 20 cm)</li>
-          </ul>
-        </div>
-      </div>
-      <div class="phase">
-        <div class="phase-num">Phase 04</div>
-        <div>
-          <div class="phase-title">Autonomous Mode</div>
-          <ul class="checklist">
-            <li>Left/right scan via servo to find clear path</li>
-            <li>Build obstacle avoidance logic</li>
-            <li>Mode toggle via joystick button</li>
-            <li>Test with multiple obstacles</li>
-          </ul>
-        </div>
-      </div>
-      <div class="phase">
-        <div class="phase-num">Phase 05</div>
-        <div>
-          <div class="phase-title">OLED Display</div>
-          <ul class="checklist">
-            <li>Initialize display over I2C</li>
-            <li>Render current mode (MANUAL / AUTONOMOUS)</li>
-            <li>Show live speed and distance values</li>
-          </ul>
-        </div>
-      </div>
-      <div class="phase">
-        <div class="phase-num">Phase 06</div>
-        <div>
-          <div class="phase-title">Integration & Submission</div>
-          <ul class="checklist">
-            <li>Full system integration test</li>
-            <li>Code cleanup and documentation</li>
-            <li>Prepare final presentation</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="team">
-    <h2>Team</h2>
-    <div class="team-grid">
-      <div class="team-card">
-        <div class="role">Hardware & Wiring</div>
-        <div class="name">—</div>
-      </div>
-      <div class="team-card">
-        <div class="role">Motor & Joystick Control</div>
-        <div class="name">—</div>
-      </div>
-      <div class="team-card">
-        <div class="role">Ultrasonic & Autonomous Mode</div>
-        <div class="name">—</div>
-      </div>
-      <div class="team-card">
-        <div class="role">OLED Display & Documentation</div>
-        <div class="name">—</div>
-      </div>
-    </div>
-
-    <h3 style="margin-top:2.5rem;">Timeline</h3>
-    <div class="timeline">
-      <div class="tl-row"><span class="tl-week">Week 1</span><span class="tl-text">Planning, schematic, material procurement</span></div>
-      <div class="tl-row"><span class="tl-week">Week 2</span><span class="tl-text">Hardware assembly and motor test</span></div>
-      <div class="tl-row"><span class="tl-week">Week 3</span><span class="tl-text">Joystick control and servo steering</span></div>
-      <div class="tl-row"><span class="tl-week">Week 4</span><span class="tl-text">Ultrasonic sensor integration</span></div>
-      <div class="tl-row"><span class="tl-week">Week 5</span><span class="tl-text">Autonomous mode and OLED display</span></div>
-      <div class="tl-row"><span class="tl-week">Week 6</span><span class="tl-text">Testing, bugfixes, and final presentation</span></div>
-    </div>
-  </section>
+Made with ❤ as part of a school embedded systems project.
 
 </div>
-
-</body>
-</html>
